@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: stormpath-tenant-usage
+Version: 0.0.1
+Summary: Queries redshift for a Stormpath tenants billed API usage information for X number of billing periods
+Home-page: https://github.com/mdeggies/stormpath-tenant-usage
+Author: Michele Degges
+Author-email: michele@stormpath.com
+License: UNLICENSED
+Description: UNKNOWN
+Platform: UNKNOWN
