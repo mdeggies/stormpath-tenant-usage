@@ -2,7 +2,7 @@
 """
 stormpath-tenant-usage
 ~~~~~~~~~~~~~~~~
-Query redshift for a Stormpath tenant's billed API usage logs
+Query redshift for a tenant's billed API usage logs
 
 Usage:
   stormpath-tenant-usage configure
@@ -51,7 +51,7 @@ class ExportUsage(object):
 
         if exists(CONFIG_FILE):
             credentials = loads(open(CONFIG_FILE, 'r').read())
-            setup_logger()
+            self.setup_logger()
             logging.info('=== Connecting to Redshift ===')
             self.conn = connect(database=credentials.get('database'), port=credentials.get('port'), host=credentials.get('host'), user=credentials.get('username'), password=credentials.get('password'))
             self.cur = self.conn.cursor()
@@ -62,7 +62,7 @@ class ExportUsage(object):
             logging.error('*** No Redshift credentials found! Please run stormpath-tenant-usage configure to set them up.')
             exit(1)
 
-    def setup_logger():
+    def setup_logger(self):
         """
         Set up the logger to display all output
         """
@@ -244,7 +244,7 @@ class ExportUsage(object):
         column_headers = ('API Count', 'URL', 'Method', 'Status', 'IP Address', 'Requester API Key ID', 'Min Timestamp (UTC)', 'Max Timestamp (UTC)')
 
         with open(csv_file, 'w') as f:
-            logging.info('- Writing to the file...')
+            logging.info('- Writing data to file...')
             csv_writer = writer(f, delimiter='|')
             csv_writer.writerow(column_headers)
             csv_writer.writerows(self.cur)
@@ -326,7 +326,7 @@ def configure():
             finished = True
 
         except Exception as e:
-            logging.error('=== Your Redshift credentials are not working! ===\n{}'.format(e))
+            logging.error('=== Your Redshift credentials are not working:\n{}'.format(e))
 
 def main():
     """Handle user input, and do stuff accordingly."""

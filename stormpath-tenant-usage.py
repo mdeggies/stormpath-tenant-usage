@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 """
 stormpath-tenant-usage
 ~~~~~~~~~~~~~~~~
@@ -6,18 +7,22 @@ Query redshift for a Stormpath tenant's billed API usage logs
 
 Usage:
   stormpath-tenant-usage configure
-  stormpath-tenant-usage (-t <tenant-name> | --tenant-name <tenant-name>)
-    [-l <location> | --location <location>]
-    [-b <billing-periods> | --billing-periods <billing-periods>]
-    [(-e <email> -s <sms>) | (--email <email> --sms <sms>)]
-  stormpath-tenant-usage (-t <tenant-name> | --tenant-name <tenant-name>)
-    [-l <location> | --location <location>]
-    [(-st <start-timestamp> -et <end-timestamp>) | (--start <start-timestamp> --end <end-timestamp>)]
-    [(-e <email> -s <sms>) | (--email <email> --sms <sms>)]
+  stormpath-tenant-usage (-t <tenant-name>)
+    [-l <location>]
+    [(-b <billing-periods>) | (-y <start-timestamp> -z <end-timestamp>)]
+    [-e <email> -s <sms>]
+    [-v]
 
 Options:
-  -h --help             Show this screen.
-  -v --version          Show version.
+    -t --tenant-name <tenant-name>          (Required) Name of the Stormpath tenant
+    -l --location <location>                Local directory to save the logs to [default: ~/stormpath-tenant-usage]
+    -b --billing-periods <billing-periods>  Number of billing periods to query [default: 1]
+    -y --start-timestamp <start-timestamp>  UTC start time (e.g. 2015-12-01 05:30:00)
+    -z --end-timestamp <end-timestamp>      UTC end time   (e.g. 2016-01-01 05:30:00)
+    -e --email <email>                      Email address that will receive the logs
+    -s --sms <sms>                          SMS number that will receive the decryption key needed to open the logs
+    -v --verbose                            Query for the raw, unaggregated logs? [default: False]
+
 
 Written by Michele Degges.
 """
@@ -41,30 +46,32 @@ from sys import exit
 import random, logging
 
 CONFIG_FILE = expanduser('~/.redshift')
-VERSION = 'stormpath-tenant-usage 0.0.1'
+VERSION = 'stormpath-tenant-usage 0.1.0'
+FILE_EXPIRATION_TIME = 86400
 
 class ExportUsage(object):
     """Our CLI manager."""
 
-    def __init__(self, tenant_name, location=None, billing_periods=None):
+    def __init__(self, tenant_name, location, billing_periods, verbose):
         """Open a Redshift connection and set global vars"""
 
         if exists(CONFIG_FILE):
             credentials = loads(open(CONFIG_FILE, 'r').read())
-            setup_logger()
+            self.setup_logger()
             logging.info('=== Connecting to Redshift ===')
             self.conn = connect(database=credentials.get('database'), port=credentials.get('port'), host=credentials.get('host'), user=credentials.get('username'), password=credentials.get('password'))
             self.cur = self.conn.cursor()
             self.tenant_name = tenant_name
+            self.verbose = verbose
             self.location = self.set_location(location)
             self.billing_periods = self.set_billing_periods(billing_periods)
         else:
             logging.error('*** No Redshift credentials found! Please run stormpath-tenant-usage configure to set them up.')
             exit(1)
 
-    def setup_logger():
+    def setup_logger(self):
         """
-        Set up the logger to display all output
+        Set up the logger to display all info/errors
         """
 
         logging.getLogger().setLevel(logging.INFO)
@@ -85,12 +92,16 @@ class ExportUsage(object):
         timestamp_query = """
             SELECT billing_period_start, billing_period_end FROM subscriptions
             JOIN requests ON subscriptions.tenant_uid = requests.tenant_uid
-            WHERE tenant_name_key = %s LIMIT 1;
+            WHERE tenant_name = %s LIMIT 1;
         """
 
         logging.info('- Retrieving billing periods...')
         self.cur.execute(timestamp_query, (self.tenant_name,))
         timestamp = self.cur.fetchone()
+
+        if timestamp is None:
+            logger.error('Data for this tenant is not available in Redshift.')
+            exit(1)
 
         start = timestamp[0] # Current billing period start
         end = timestamp[1] # Current billing period end
@@ -130,18 +141,27 @@ class ExportUsage(object):
             3-tenant-name.csv = previous-previous billing period logs...
         """
 
-        billing_query = """
-            SELECT count(1) AS apicount, uri, method, status, ip, requester_api_key_id,
-            min(timestamp), max(timestamp)
-            FROM requests JOIN subscriptions ON requests.tenant_uid = subscriptions.tenant_uid
-            WHERE tenant_name_key = %s
-            AND timestamp >= %s AND timestamp < %s
-            AND billed='t' GROUP BY uri, method, status, ip, requester_api_key_id
-            ORDER BY apicount DESC;
-        """
+        if self.verbose:
+            billing_query = """
+                SELECT uri, method, status, ip, requester_api_key_id, timestamp
+                FROM requests JOIN subscriptions ON requests.tenant_uid = subscriptions.tenant_uid
+                WHERE tenant_name = %s
+                AND timestamp >= %s AND timestamp < %s
+                AND billed='t';
+            """
+        else:
+            billing_query = """
+                SELECT count(1) AS apicount, uri, method, status, ip, requester_api_key_id,
+                min(timestamp), max(timestamp)
+                FROM requests JOIN subscriptions ON requests.tenant_uid = subscriptions.tenant_uid
+                WHERE tenant_name = %s
+                AND timestamp >= %s AND timestamp < %s
+                AND billed='t' GROUP BY uri, method, status, ip, requester_api_key_id
+                ORDER BY apicount DESC;
+            """
 
         for i, timerange in timestamps.items():
-            logging.info('- Running query {} for data in range {} to {}...'.format(i, datetime.strptime(timerange['start'], '%Y-%m-%d %H:%M:%S'), datetime.strptime(timerange['end'], '%Y-%m-%d %H:%M:%S')))
+            logging.info('- Running query {} for data in range {} to {}...'.format(i, timerange['start'], timerange['end']))
             self.cur.execute(billing_query, (self.tenant_name, timerange['start'], timerange['end']))
             csv_file = path.join(self.location, '%d-%s.csv' % (i, self.tenant_name))
             self.export_to_csv(csv_file)
@@ -153,7 +173,7 @@ class ExportUsage(object):
 
         twilio_client = Client(environ.get('TWILIO_ACCOUNT_SID'), environ.get('TWILIO_AUTH_TOKEN'))
 
-        logging.info('- Sending decryption key via SMS...')
+        logging.info('- Sending decryption key via SMS: {}'.format(encryption_key))
         msg = twilio_client.messages.create(
             to=sms_number,
             from_="+16502810864",
@@ -188,8 +208,7 @@ class ExportUsage(object):
             Params={
                 'Bucket': environ.get('S3_BUCKET'),
                 'Key': zip_file
-            }
-        )
+            }, ExpiresIn=FILE_EXPIRATION_TIME)
 
         return url
 
@@ -241,10 +260,13 @@ class ExportUsage(object):
     def export_to_csv(self, csv_file):
         """Write Redshift queried usage data to a CSV."""
 
-        column_headers = ('API Count', 'URL', 'Method', 'Status', 'IP Address', 'Requester API Key ID', 'Min Timestamp (UTC)', 'Max Timestamp (UTC)')
+        if self.verbose:
+            column_headers = ('URL', 'Method', 'Status', 'IP Address', 'Requester API Key ID', 'Timestamp (UTC)')
+        else:
+            column_headers = ('URL', 'Method', 'Status', 'IP Address', 'Requester API Key ID', 'Min Timestamp (UTC)', 'Max Timestamp (UTC)')
 
         with open(csv_file, 'w') as f:
-            logging.info('- Writing to the file...')
+            logging.info('- Writing data to file...')
             csv_writer = writer(f, delimiter='|')
             csv_writer.writerow(column_headers)
             csv_writer.writerows(self.cur)
@@ -266,7 +288,7 @@ class ExportUsage(object):
         Return the proper location to store the CSV (must be a directory).
         """
 
-        if not location:
+        if location == '~/stormpath-tenant-usage':
             location = expanduser("~") + '/stormpath-tenant-usage/'
             if not path.exists(location):
                 makedirs(location)
@@ -326,7 +348,7 @@ def configure():
             finished = True
 
         except Exception as e:
-            logging.error('=== Your Redshift credentials are not working! ===\n{}'.format(e))
+            logging.error('=== Your Redshift credentials are not working:\n{}'.format(e))
 
 def main():
     """Handle user input, and do stuff accordingly."""
@@ -338,14 +360,16 @@ def main():
         configure()
         return
 
-    exporter = ExportUsage(arguments['<tenant-name>'], arguments['<location>'], arguments['<billing-periods>'])
+    print(arguments)
+
+    exporter = ExportUsage(arguments['--tenant-name'], arguments['--location'], arguments['--billing-periods'], arguments['--verbose'])
 
     # Get one-off usage logs for a given start and end date/time
-    if arguments['<start-timestamp>'] is not None and arguments['<end-timestamp>'] is not None:
+    if arguments['--start-timestamp'] is not None and arguments['--end-timestamp'] is not None:
         timestamps = {
             1: {
-                "start": datetime.strptime(arguments['<start-timestamp>'], '%Y-%m-%d %H:%M:%S'),
-                "end": datetime.strptime(arguments['<end-timestamp>'], '%Y-%m-%d %H:%M:%S')
+                "start": datetime.strptime(arguments['--start-timestamp'], '%Y-%m-%d %H:%M:%S'),
+                "end": datetime.strptime(arguments['--end-timestamp'], '%Y-%m-%d %H:%M:%S')
             }
         }
         exporter.query_redshift(timestamps)
@@ -354,8 +378,8 @@ def main():
         exporter.get_timestamps()
 
     # Send a link to the encrypted usage logs via email, and the decryption key via SMS
-    if arguments['<email>'] is not None and arguments['<sms>'] is not None:
-        exporter.send_email(arguments['<email>'], arguments['<sms>'])
+    if arguments['--email'] is not None and arguments['--sms'] is not None:
+        exporter.send_email(arguments['--email'], arguments['--sms'])
 
 if __name__ == '__main__':
     main()
