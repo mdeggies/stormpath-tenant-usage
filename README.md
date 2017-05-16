@@ -46,19 +46,19 @@ If you want to get a smaller set of logs that contain less than a months worth o
 You should see output similar to the following:
 
 ```
-    === Connecting to Redshift ===
-    - Running query 1 for data in range 2017-05-05 00:00:00 to 2017-05-10 00:00:00...
-    - Writing data to file...
-    - Encrypting data with a secure, random key...
-    updating: tenant-name/ (stored 0%)
-    updating: tenant-name/1-tenant-name.csv (deflated 42%)
-    - Uploading file to S3...
-    Calling s3:list_buckets with {}
-    Starting new HTTPS connection (1): s3.amazonaws.com
-    Calling s3:put_object with {'Bucket': 'bucket-name', 'Key': 'tenant-name.zip', 'Body': <_io.BufferedReader name='/tenant-name.zip'>, 'ContentType': 'application/zip'}
-    Starting new HTTPS connection (1): stormpath-tenant-usage.s3.amazonaws.com
-    - Sending email to email-address@domain.com...
-    - Sending decryption key via SMS...
+=== Connecting to Redshift ===
+- Running query 1 for data in range 2017-05-05 00:00:00 to 2017-05-10 00:00:00...
+- Writing data to file...
+- Encrypting data with a secure, random key...
+updating: tenant-name/ (stored 0%)
+updating: tenant-name/1-tenant-name.csv (deflated 42%)
+- Uploading file to S3...
+Calling s3:list_buckets with {}
+  Starting new HTTPS connection (1): s3.amazonaws.com
+  Calling s3:put_object with {'Bucket': 'bucket-name', 'Key': 'tenant-name.zip', 'Body': <_io.BufferedReader name='/tenant-name.zip'>, 'ContentType': 'application/zip'}
+  Starting new HTTPS connection (1): stormpath-tenant-usage.s3.amazonaws.com
+  - Sending email to email-address@domain.com...
+  - Sending decryption key via SMS...
 ```
 
 ```
@@ -72,32 +72,32 @@ a link will be emailed out, and the decryption key will be sent via SMS.
 For full usage information, run ``stormpath-tenant-usage -h``:
 
 ```
-    $ stormpath-tenant-usage
-    ~~~~~~~~~~~~~~~~
-    Query redshift for a Stormpath tenant's billed API usage logs
+$ stormpath-tenant-usage
+~~~~~~~~~~~~~~~~
+Query redshift for a Stormpath tenant's billed API usage logs
 
-    Usage:
-      stormpath-tenant-usage configure
-      stormpath-tenant-usage (-t <tenant-name>)
-        [-l <location>]
-        [(-b <billing-periods>) | (-S <start-timestamp> -E <end-timestamp>)]
-        [-e <email> -s <sms>]
-        [-V]
+Usage:
+  stormpath-tenant-usage configure
+  stormpath-tenant-usage (-t <tenant-name>)
+  [-l <location>]
+  [(-b <billing-periods>) | (-S <start-timestamp> -E <end-timestamp>)]
+  [-e <email> -s <sms>]
+  [-V]
 
-    Options:
-        -h --help                               Show this screen.
-        -v --version                            Show version.
-        -t --tenant-name <tenant-name>          (Required) Name of the Stormpath tenant.
-        -l --location <location>                Local directory to save the logs to [default: ~/stormpath-tenant-usage].
-        -b --billing-periods <billing-periods>  Number of billing periods to query [default: 1].
-        -S --start-timestamp <start-timestamp>  UTC start time (e.g. 2015-12-01 05:30:00).
-        -E --end-timestamp <end-timestamp>      UTC end time   (e.g. 2016-01-01 05:30:00).
-        -e --email <email>                      Email address that will receive the logs.
-        -s --sms <sms>                          SMS number that will receive the decryption key needed to open the logs.
-        -V --verbose                            Query for the raw, unaggregated logs? [default: False].
+Options:
+  -h --help                               Show this screen.
+  -v --version                            Show version.
+  -t --tenant-name <tenant-name>          (Required) Name of the Stormpath tenant.
+  -l --location <location>                Local directory to save the logs to [default: ~/stormpath-tenant-usage].
+  -b --billing-periods <billing-periods>  Number of billing periods to query [default: 1].
+  -S --start-timestamp <start-timestamp>  UTC start time (e.g. 2015-12-01 05:30:00).
+  -E --end-timestamp <end-timestamp>      UTC end time   (e.g. 2016-01-01 05:30:00).
+  -e --email <email>                      Email address that will receive the logs.
+  -s --sms <sms>                          SMS number that will receive the decryption key needed to open the logs.
+  -V --verbose                            Query for the raw, unaggregated logs? [default: False].
 
 
-    Written by Michele Degges.
+Written by Michele Degges.
 ```
 
 Contribute
@@ -133,4 +133,4 @@ Changelog
 
 [PIP]: http://pip.readthedocs.org/en/stable/ "pip"
 [GIT]: https://github.com/mdeggies/stormpath-tenant-usage/issues "Github issue tracker"
-[SME]: [SME]: mailto:mdeggies@gmail.com?subject=HELP! "shoot me an email"
+[SME]: mailto:mdeggies@gmail.com?subject=HELP! "shoot me an email"
