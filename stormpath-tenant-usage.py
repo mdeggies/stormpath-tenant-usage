@@ -9,19 +9,21 @@ Usage:
   stormpath-tenant-usage configure
   stormpath-tenant-usage (-t <tenant-name>)
     [-l <location>]
-    [(-b <billing-periods>) | (-y <start-timestamp> -z <end-timestamp>)]
+    [(-b <billing-periods>) | (-S <start-timestamp> -E <end-timestamp>)]
     [-e <email> -s <sms>]
-    [-v]
+    [-V]
 
 Options:
-    -t --tenant-name <tenant-name>          (Required) Name of the Stormpath tenant
-    -l --location <location>                Local directory to save the logs to [default: ~/stormpath-tenant-usage]
-    -b --billing-periods <billing-periods>  Number of billing periods to query [default: 1]
-    -y --start-timestamp <start-timestamp>  UTC start time (e.g. 2015-12-01 05:30:00)
-    -z --end-timestamp <end-timestamp>      UTC end time   (e.g. 2016-01-01 05:30:00)
-    -e --email <email>                      Email address that will receive the logs
-    -s --sms <sms>                          SMS number that will receive the decryption key needed to open the logs
-    -v --verbose                            Query for the raw, unaggregated logs? [default: False]
+    -h --help                               Show this screen.
+    -v --version                            Show version.
+    -t --tenant-name <tenant-name>          (Required) Name of the Stormpath tenant.
+    -l --location <location>                Local directory to save the logs to [default: ~/stormpath-tenant-usage].
+    -b --billing-periods <billing-periods>  Number of billing periods to query [default: 1].
+    -S --start-timestamp <start-timestamp>  UTC start time (e.g. 2015-12-01 05:30:00).
+    -E --end-timestamp <end-timestamp>      UTC end time   (e.g. 2016-01-01 05:30:00).
+    -e --email <email>                      Email address that will receive the logs.
+    -s --sms <sms>                          SMS number that will receive the decryption key needed to open the logs.
+    -V --verbose                            Query for the raw, unaggregated logs? [default: False].
 
 
 Written by Michele Degges.
@@ -46,7 +48,7 @@ from sys import exit
 import random, logging
 
 CONFIG_FILE = expanduser('~/.redshift')
-VERSION = 'stormpath-tenant-usage 0.1.0'
+VERSION = 'stormpath-tenant-usage 0.0.2'
 FILE_EXPIRATION_TIME = 86400
 
 class ExportUsage(object):
@@ -359,8 +361,6 @@ def main():
     if arguments['configure']:
         configure()
         return
-
-    print(arguments)
 
     exporter = ExportUsage(arguments['--tenant-name'], arguments['--location'], arguments['--billing-periods'], arguments['--verbose'])
 
